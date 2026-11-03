@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       kernel_version:
-        description: "Force a kernel version (blank = newest LTS from kernel.org)"
+        description: "Force a kernel version like 7.3.1 (blank = newest stable release)"
         required: false
         default: ""
   push:
@@ -56,8 +56,8 @@ jobs:
       - name: Resolve and download sources
         run: make fetch
 
-      - name: Build arm64 kernel Image
-        run: make kernel
+      - name: Configure kernel and prepare for modules
+        run: make prepare
 
       - name: Build initramfs with hello_demo.ko
         run: make initramfs
@@ -68,7 +68,10 @@ jobs:
       - name: Show the injected node
         run: dtc -I dtb -O dts work/virt-hello.dtb | sed -n '/hello-demo/,/};/p'
 
-      - name: Boot in QEMU
+      - name: Build kernel Image (initramfs embedded)
+        run: make kernel
+
+      - name: Boot headless in QEMU
         run: make boot
 
       - name: Assert driver results

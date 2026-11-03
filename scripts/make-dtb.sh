@@ -6,8 +6,10 @@ source "$(dirname "$0")/env.sh"
 mkdir -p "$WORK"
 
 say "dump QEMU virt dtb"
+# Dump with the same cpu/memory topology as boot.sh: this DTB is what the kernel
+# will actually see, so a mismatched CPU or memory node would silently lie.
 "$QEMU" -machine "$QEMU_MACHINE,dumpdtb=$WORK/virt-plain.dtb" -cpu "$QEMU_CPU" \
-	-m "$QEMU_MEM" -smp 1 -nographic >/dev/null 2>&1
+	-m "$QEMU_MEM" -smp "$QEMU_SMP" -nographic >/dev/null 2>&1
 dtc -I dtb -O dts -o "$WORK/virt-plain.dts" "$WORK/virt-plain.dtb"
 
 say "insert hello-demo node at /"

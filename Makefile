@@ -4,19 +4,27 @@ CROSS_COMPILE ?= aarch64-linux-gnu-
 export ARCH CROSS_COMPILE FORCE_KERNEL_VERSION
 export QEMU_EXTRA BOOT_TIMEOUT BOOT_DELAY WORK
 
+# Build order matters: the kernel's final Image embeds the initramfs, and the
+# initramfs needs a configured kernel tree to build the out-of-tree module.
+#
+#   fetch -> prepare -> initramfs -> dtb -> kernel -> boot -> check
+#
 # Scripts are called with `bash` so the exec bit never matters (Windows checkout).
 SCRIPTS := scripts
 
-.PHONY: fetch kernel initramfs dtb boot check all lab clean chain-build chain-boot chain-run chain disk module
+.PHONY: all lab fetch prepare kernel initramfs dtb boot check module clean \
+	disk chain-build chain-boot chain-run chain
 
-all: fetch kernel initramfs dtb
+all: fetch prepare initramfs dtb kernel
 
 lab: all boot check
 
 fetch:
 	bash $(SCRIPTS)/fetch-sources.sh
+prepare:
+	bash $(SCRIPTS)/build-kernel.sh prepare
 kernel:
-	bash $(SCRIPTS)/build-kernel.sh
+	bash $(SCRIPTS)/build-kernel.sh image
 initramfs:
 	bash $(SCRIPTS)/build-initramfs.sh
 dtb:
@@ -30,17 +38,13 @@ module:
 
 disk:
 	bash $(SCRIPTS)/make-disk.sh
-
-chain-build: fetch kernel initramfs dtb
+chain-build:
 	bash $(SCRIPTS)/build-chain.sh
-
-chain-boot: chain-build disk
+chain-boot:
 	bash $(SCRIPTS)/boot-chain.sh
-
 chain-run:
 	bash $(SCRIPTS)/boot-chain.sh
-
-chain: chain-boot
+chain: all disk chain-build chain-boot
 
 clean:
 	rm -rf work

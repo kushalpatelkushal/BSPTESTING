@@ -12,7 +12,6 @@ dd if=/dev/zero of="$DISK" bs=1M count=64 status=none
 mkfs.vfat -F 32 "$DISK" >/dev/null
 
 mcopy -i "$DISK" "$KDIR/arch/arm64/boot/Image" ::/Image
-mcopy -i "$DISK" "$WORK/initramfs.cpio.gz" ::/initramfs.cpio.gz
 mcopy -i "$DISK" "$WORK/virt-hello.dtb" ::/hello.dtb
 say "disk contents"
 mdir -i "$DISK" ::/

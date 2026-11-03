@@ -34,13 +34,10 @@ say "booting chain in QEMU, feeding U-Boot commands after ${BOOT_DELAY}s"
 	sleep 3
 	printf 'fatload virtio 0:1 $kernel_addr_r Image\r'
 	sleep 6
-	printf 'fatload virtio 0:1 $ramdisk_addr_r initramfs.cpio.gz\r'
-	sleep 6
-	printf 'setenv rdsize $filesize\r'
-	sleep 2
 	printf 'fatload virtio 0:1 $fdt_addr_r hello.dtb\r'
 	sleep 4
-	printf 'booti $kernel_addr_r ${ramdisk_addr_r}:${rdsize} $fdt_addr_r\r'
+	# No ramdisk: the initramfs is embedded in Image by CONFIG_INITRAMFS_SOURCE.
+	printf 'booti $kernel_addr_r - $fdt_addr_r\r'
 } | timeout "$BOOT_TIMEOUT" "$QEMU" \
 	-machine virt -cpu cortex-a53 -smp 2 -m 1024 \
 	-nographic \

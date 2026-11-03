@@ -4,11 +4,14 @@ set -euo pipefail
 source "$(dirname "$0")/env.sh"
 KDIR=$(KDIR)
 
-for f in "$KDIR/arch/arm64/boot/Image" "$WORK/virt-hello.dtb" "$WORK/initramfs.cpio.gz"; do
+for f in "$KDIR/arch/arm64/boot/Image" "$WORK/virt-hello.dtb"; do
 	[ -f "$f" ] || { echo "missing $f -- run: make all"; exit 1; }
 done
 
 say "boot arm64 QEMU ($QEMU_CPU, $QEMU_SMP cpus, ${QEMU_MEM}M) -- no board involved"
+# The initramfs is embedded in Image (CONFIG_INITRAMFS_SOURCE). bootargs are passed
+# both ways on purpose: if QEMU injects -append into the user DTB it wins, otherwise
+# the kernel falls back to its own CONFIG_CMDLINE.
 set +e
 timeout "$BOOT_TIMEOUT" "$QEMU" \
 	${QEMU_EXTRA:-} \
@@ -16,7 +19,6 @@ timeout "$BOOT_TIMEOUT" "$QEMU" \
 	-nographic -no-reboot \
 	-kernel "$KDIR/arch/arm64/boot/Image" \
 	-dtb "$WORK/virt-hello.dtb" \
-	-initrd "$WORK/initramfs.cpio.gz" \
 	-append "console=ttyAMA0 rdinit=/init panic=-1" 2>&1 | tee "$BOOT_LOG"
 rc=${PIPESTATUS[0]}
 set -e

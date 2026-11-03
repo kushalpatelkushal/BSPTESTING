@@ -6,17 +6,27 @@ kernel, a real device tree and a real loadable driver.
 
 ## What the driver lab proves
 
-`make lab` (CI job **driver lab**) does the whole loop:
+`make lab` (CI job **driver lab**) does the whole loop, in this order:
 
-1. downloads the newest longterm kernel from kernel.org and the newest busybox
-2. builds an arm64 `defconfig` kernel Image, cross-compiling on x86
-3. builds a static busybox initramfs containing `hello_demo.ko`
+1. resolves the newest stable kernel (GitHub mirror tags, falling back to
+   kernel.org) and the newest busybox, then downloads both
+2. configures an arm64 `defconfig` kernel and runs `modules_prepare`
+3. builds a static busybox and an out-of-tree `hello_demo.ko`, packed into a cpio
+   initramfs
 4. dumps QEMU's own device tree with `dtc`, injects a `qoder,hello-demo` node,
-   recompiles the DTB
-5. boots headless: ROM -> kernel -> initramfs -> `/init`
+   recompiles the DTB with the same CPU/memory topology used at boot
+5. builds the kernel Image with that initramfs **embedded** (`CONFIG_INITRAMFS_SOURCE`)
+   and a default `CONFIG_CMDLINE`, then boots headless: ROM -> kernel -> `/init`
 6. asserts, from the boot log, that the DT node became a platform device, the
    driver bound, sysfs attributes were readable, `/dev/hello` returned data, and
    `rmmod` left nothing behind
+
+Why the initramfs is embedded and the cmdline is compiled in: when you hand QEMU a
+`-dtb` file you own the device tree, and QEMU is not obliged to write `/chosen`
+bootargs or initrd addresses into it. Embedding the initramfs and defaulting the
+command line removes that dependency (and is how a lot of production embedded
+kernels ship anyway). `-append` is still passed, so if the boot loader side *does*
+inject bootargs, that path is exercised too.
 
 The assertion step is what makes this a lab rather than a demo: the checks live in
 `scripts/check-log.sh` and fail the build.
@@ -29,7 +39,7 @@ The assertion step is what makes this a lab rather than a demo: the checks live 
 | `dts/hello-demo-node.dtsi` | the node injected into QEMU's device tree |
 | `rootfs/init` | PID 1 in the initramfs; prints the `Result:` lines CI asserts on |
 | `scripts/make-dtb.sh` | dtc round-trip: dump -> decompile -> insert -> recompile |
-| `scripts/build-kernel.sh` | defconfig plus the flags this lab needs |
+| `scripts/build-kernel.sh` | two phases: `prepare` (defconfig + `modules_prepare`) and `image` (embedded initramfs + default cmdline) |
 | `scripts/build-initramfs.sh` | busybox + module + cpio |
 | `scripts/boot.sh` | headless QEMU run with timeout and `panic=-1` |
 | `scripts/build-chain.sh`, `scripts/boot-chain.sh` | TF-A + U-Boot -> Linux (experimental job) |
@@ -53,7 +63,8 @@ make all && make boot && make check
 then `make all CROSS_COMPILE=` and `make boot CROSS_COMPILE= QEMU_EXTRA='-accel kvm'`.
 Real aarch64 cores plus a real NVMe disk, which is where storage-stack work belongs.
 
-**Driver edit loop:** `make module && make initramfs && make boot`.
+**Driver edit loop:** `make module && make initramfs && make kernel && make boot`
+(the kernel relink picks up the new initramfs).
 
 ## The boot-chain job
 

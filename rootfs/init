@@ -1,14 +1,15 @@
 #!/bin/sh
-# Runs as PID 1 inside the initramfs. Prints "Result:" lines that
+# Runs as PID 1 in the initramfs. Prints "Result:" lines that
 # scripts/check-log.sh asserts on, so a headless CI run is a real test.
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
 echo "Result: kernel-loaded"
 echo "Result: uname=$(uname -srm)"
 
-mount -t proc proc /proc || echo "Result: mount-proc=FAIL"
-mount -t sysfs sysfs /sys || echo "Result: mount-sys=FAIL"
-mount -t devtmpfs devtmpfs /dev || echo "Result: mount-dev=FAIL"
+mount -t proc proc /proc 2>/dev/null
+mount -t sysfs sysfs /sys 2>/dev/null
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+echo "Result: mounts=$(grep -c ' /proc\| /sys\| /dev ' /proc/mounts 2>/dev/null)"
 
 DTNODE=/sys/firmware/devicetree/base/hello-demo
 if [ -d "$DTNODE" ]; then
@@ -18,7 +19,7 @@ else
 	echo "Result: dt-node=MISSING"
 fi
 
-echo "--- platform devices visible before insmod ---"
+echo "--- platform devices before insmod ---"
 ls /sys/devices/platform | tr '\n' ' '
 echo ""
 
@@ -28,10 +29,14 @@ else
 	echo "Result: insmod=FAIL"
 fi
 
-echo "--- last dmesg lines ---"
-dmesg | tail -n 12
+echo "--- tail of kernel log ---"
+if dmesg 2>/dev/null | tail -n 12; then
+	:
+else
+	echo "(dmesg applet not built; the driver's probe message is still asserted below)"
+fi
 
-DEVPATH=$(find /sys/devices/platform -maxdepth 1 -name 'hello-demo*' | sed -n '1p')
+DEVPATH=$(ls -d /sys/devices/platform/hello-demo* 2>/dev/null | sed -n '1p')
 echo "Result: sysfs-path=$DEVPATH"
 echo "Result: sysfs-channels=$(cat "$DEVPATH/channels" 2>/dev/null)"
 echo "Result: sysfs-model=$(cat "$DEVPATH/model" 2>/dev/null)"
