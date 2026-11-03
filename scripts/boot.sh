@@ -16,7 +16,7 @@ set +e
 timeout "$BOOT_TIMEOUT" "$QEMU" \
 	${QEMU_EXTRA:-} \
 	-machine "$QEMU_MACHINE" -cpu "$QEMU_CPU" -smp "$QEMU_SMP" -m "$QEMU_MEM" \
-	-nographic -no-reboot \
+	-nographic -no-reboot -nic none \
 	-kernel "$KDIR/arch/arm64/boot/Image" \
 	-dtb "$WORK/virt-hello.dtb" \
 	-append "console=ttyAMA0 rdinit=/init panic=-1" 2>&1 | tee "$BOOT_LOG"

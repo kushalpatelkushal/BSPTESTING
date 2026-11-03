@@ -51,7 +51,7 @@ set +e; set +o pipefail
 	printf 'booti $kernel_addr_r - $fdt_addr_r\r'
 } | timeout "$BOOT_TIMEOUT" "$QEMU" \
 	-machine virt,secure=on -cpu "$QEMU_CHAIN_CPU" -smp "$QEMU_SMP" -m "$QEMU_MEM" \
-	-nographic \
+	-nographic -nic none \
 	-semihosting-config enable=on,target=native \
 	-bios "$FLASH" \
 	-drive if=none,id=hd0,format=raw,file="$WORK/disk.img" \

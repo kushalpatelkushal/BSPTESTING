@@ -8,8 +8,11 @@ mkdir -p "$WORK"
 say "dump QEMU virt dtb"
 # Dump with the same cpu/memory topology as boot.sh: this DTB is what the kernel
 # will actually see, so a mismatched CPU or memory node would silently lie.
+# -nic none: QEMU adds a virtio-net card by default, and realising it wants the
+# iPXE option ROM (efi-virtio.rom), which is not on a CI runner -- the dump aborts
+# with "failed to find romfile". This lab needs no network device.
 "$QEMU" -machine "$QEMU_MACHINE,dumpdtb=$WORK/virt-plain.dtb" -cpu "$QEMU_CPU" \
-	-m "$QEMU_MEM" -smp "$QEMU_SMP" -nographic 2>&1 | tee "$WORK/dumpdtb.log" || true
+	-m "$QEMU_MEM" -smp "$QEMU_SMP" -nographic -nic none 2>&1 | tee "$WORK/dumpdtb.log" || true
 [ -s "$WORK/virt-plain.dtb" ] || { echo "QEMU wrote no dtb (see dumpdtb.log)"; exit 1; }
 dtc -I dtb -O dts -o "$WORK/virt-plain.dts" "$WORK/virt-plain.dtb"
 
