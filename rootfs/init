@@ -3,12 +3,21 @@
 # scripts/check-log.sh asserts on, so a headless CI run is a real test.
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
+# An initramfs has no /dev nodes, so the kernel prints
+# "Warning: unable to open an initial console" and gives PID 1 no stdout: every
+# echo below would vanish into a closed fd while the kernel's own log kept
+# flowing to ttyAMA0. Mount devtmpfs (or make the two nodes ourselves -- PID 1 is
+# root) and only then point our stdio at the console.
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+[ -c /dev/console ] || mknod /dev/console c 5 1 2>/dev/null
+[ -c /dev/null ] || mknod /dev/null c 1 3 2>/dev/null
+exec >/dev/console 2>&1
+
 echo "Result: kernel-loaded"
 echo "Result: uname=$(uname -srm)"
 
 mount -t proc proc /proc 2>/dev/null
 mount -t sysfs sysfs /sys 2>/dev/null
-mount -t devtmpfs devtmpfs /dev 2>/dev/null
 echo "Result: mounts=$(grep -c ' /proc\| /sys\| /dev ' /proc/mounts 2>/dev/null)"
 
 DTNODE=/sys/firmware/devicetree/base/hello-demo
