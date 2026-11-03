@@ -38,26 +38,30 @@ BB="$WORK/busybox-$(cat "$WORK/busybox.version")"
 cd "$BB"
 if [ ! -f .config ]; then
 	make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" defconfig
-	enable_in_config "${REQUIRED[@]}" "${BEST_EFFORT[@]}"
-	yes "" | make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" oldconfig
-
-	missing=""
-	for s in "${REQUIRED[@]}"; do
-		grep -qE "^CONFIG_$s=[ym]" .config || missing="$missing $s"
-	done
-	if [ -n "$missing" ]; then
-		echo "busybox applets that should exist but did not enable:$missing"
-		exit 1
-	fi
-	soft=""
-	for s in "${BEST_EFFORT[@]}"; do
-		grep -qE "^CONFIG_$s=[ym]" .config || soft="$soft $s"
-	done
-	if [ -n "$soft" ]; then
-		echo "note: optional applets unavailable:$soft"
-	fi
-	echo "required busybox applets enabled"
 fi
+
+# Re-enabled on every run so a stale .config cannot skip the checks below.
+enable_in_config "${REQUIRED[@]}" "${BEST_EFFORT[@]}"
+# stdin from /dev/null lets kconfig take defaults for new symbols; piping `yes ""`
+# would abort this script on SIGPIPE because of `set -o pipefail`.
+make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" oldconfig < /dev/null
+
+missing=""
+for s in "${REQUIRED[@]}"; do
+	grep -qE "^CONFIG_$s=[ym]" .config || missing="$missing $s"
+done
+if [ -n "$missing" ]; then
+	echo "busybox applets that should exist but did not enable:$missing"
+	exit 1
+fi
+soft=""
+for s in "${BEST_EFFORT[@]}"; do
+	grep -qE "^CONFIG_$s=[ym]" .config || soft="$soft $s"
+done
+if [ -n "$soft" ]; then
+	echo "note: optional applets unavailable:$soft"
+fi
+echo "required busybox applets enabled"
 
 time make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" -j"$(nproc)"
 rm -rf "$ROOTFS"

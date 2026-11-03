@@ -68,11 +68,12 @@ Real aarch64 cores plus a real NVMe disk, which is where storage-stack work belo
 
 ## The boot-chain job
 
-`boot-chain.yml` builds U-Boot as BL33 and ARM Trusted Firmware for `PLAT=qemu_arm`,
-lays them into the QEMU secure flash, then feeds U-Boot `virtio scan` / `fatload` /
-`booti` over the serial console to load the same kernel and initramfs from a FAT image.
-It tracks mainline U-Boot and TF-A unpinned, and is `continue-on-error: true` -- a red
-run there is information, not a broken lab.
+`boot-chain.yml` builds U-Boot as BL33 and ARM Trusted Firmware for `PLAT=qemu`,
+concatenates `bl1.bin` and `fip.bin` into a boot ROM image the way TF-A's QEMU docs
+describe, then feeds U-Boot `virtio scan` / `fatload` / `booti` over the serial
+console to load the kernel Image and the patched DTB from a FAT image. It tracks
+mainline U-Boot and TF-A unpinned, and is `continue-on-error: true` -- a red run
+there is information, not a broken lab.
 
 ## Exercises that build on this
 

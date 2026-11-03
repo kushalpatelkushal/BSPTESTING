@@ -48,7 +48,8 @@ image)
 		--set-str CMDLINE "console=ttyAMA0 rdinit=/init panic=-1" \
 		--disable CMDLINE_FORCE
 	make ARCH=$ARCH olddefconfig
-	grep -E '^CONFIG_(INITRAMFS_SOURCE|CMDLINE)=' .config
+	grep -E '^CONFIG_(INITRAMFS_SOURCE|CMDLINE)=' .config ||
+		echo "WARNING: INITRAMFS_SOURCE or CMDLINE not in the final config -- the kernel will boot without our initramfs"
 	say "build Image with $(nproc) jobs"
 	time make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" -j"$(nproc)" Image
 	ls -lh arch/arm64/boot/Image

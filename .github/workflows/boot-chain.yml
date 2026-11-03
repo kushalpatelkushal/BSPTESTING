@@ -43,14 +43,14 @@ jobs:
       - name: Build kernel, initramfs and patched DTB
         run: make all
 
-      - name: Build U-Boot (BL33) and ARM Trusted Firmware
-        run: make chain-build
-
       - name: Build virtio FAT disk
         run: make disk
 
+      - name: Build U-Boot (BL33) and ARM Trusted Firmware
+        run: make chain-build
+
       - name: Run the full chain in QEMU
-        run: make chain-boot
+        run: make chain-run
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -19,13 +19,18 @@ make -C "$UBOOT" CROSS_COMPILE="$CROSS_COMPILE" qemu_arm64_defconfig
 make -C "$UBOOT" CROSS_COMPILE="$CROSS_COMPILE" -j"$(nproc)"
 ls -lh "$UBOOT/u-boot.bin"
 
-say "tf-a: PLAT=qemu_arm, BL33=u-boot.bin"
-make -C "$TFA" PLAT=qemu_arm CROSS_COMPILE="$CROSS_COMPILE" \
+# TF-A's QEMU virt Armv8-A port is PLAT=qemu (docs/plat/qemu.rst); qemu_arm64 is
+# U-Boot's board name, not a TF-A platform.
+say "tf-a: PLAT=qemu, BL33=u-boot.bin"
+make -C "$TFA" PLAT=qemu CROSS_COMPILE="$CROSS_COMPILE" \
 	BL33="$UBOOT/u-boot.bin" -j"$(nproc)" all fip
 
-BL1=$(find "$TFA/build/qemu_arm" -name bl1.bin | sed -n '1p')
-FIP=$(find "$TFA/build/qemu_arm" -name fip.bin | sed -n '1p')
-[ -n "$BL1" ] && [ -n "$FIP" ] || { echo "bl1.bin/fip.bin not found under $TFA/build/qemu_arm"; exit 1; }
+BL1=$(find "$TFA/build/qemu" -name bl1.bin | sed -n '1p')
+FIP=$(find "$TFA/build/qemu" -name fip.bin | sed -n '1p')
+if [ -z "$BL1" ] || [ -z "$FIP" ]; then
+	echo "bl1.bin/fip.bin not found under $TFA/build/qemu"
+	exit 1
+fi
 
 {
 	echo "BL1=$BL1"

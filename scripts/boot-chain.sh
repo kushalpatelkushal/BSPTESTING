@@ -11,16 +11,18 @@ BOOT_DELAY="${BOOT_DELAY:-40}"
 # shellcheck disable=SC1091
 source "$WORK/chain.env"
 
-say "assemble secure flash (bl1 at 0, fip at 1 MiB)"
-dd if=/dev/zero of="$WORK/pflash0.img" bs=1M count=64 status=none
-dd if=/dev/zero of="$WORK/pflash1.img" bs=1M count=64 status=none
-dd if="$BL1" of="$WORK/pflash0.img" bs=1M conv=notrunc status=none
-dd if="$FIP" of="$WORK/pflash0.img" bs=1M seek=1 conv=notrunc status=none
+say "assemble boot ROM (bl1 at 0, fip at 256 KiB) per TF-A docs/plat/qemu.rst"
+FLASH="$WORK/flash.bin"
+dd if=/dev/zero of="$FLASH" bs=4096 count=1024 status=none
+dd if="$BL1" of="$FLASH" bs=4096 conv=notrunc status=none
+dd if="$FIP" of="$FLASH" bs=4096 seek=64 conv=notrunc status=none
 
 for f in "$WORK/disk.img"; do
 	[ -f "$f" ] || { echo "missing $f -- run: make disk"; exit 1; }
 done
 
+# secure=on is mandatory here: BL1 runs at EL3 and QEMU virt defaults to it, but
+# spelling it out is what makes the failure mode obvious if the firmware stalls.
 say "booting chain in QEMU, feeding U-Boot commands after ${BOOT_DELAY}s"
 {
 	sleep "$BOOT_DELAY"
@@ -39,12 +41,10 @@ say "booting chain in QEMU, feeding U-Boot commands after ${BOOT_DELAY}s"
 	# No ramdisk: the initramfs is embedded in Image by CONFIG_INITRAMFS_SOURCE.
 	printf 'booti $kernel_addr_r - $fdt_addr_r\r'
 } | timeout "$BOOT_TIMEOUT" "$QEMU" \
-	-machine virt -cpu cortex-a53 -smp 2 -m 1024 \
+	-machine virt,secure=on -cpu "${QEMU_CHAIN_CPU:-cortex-a57}" -smp 2 -m 1024 \
 	-nographic \
 	-semihosting-config enable=on,target=native \
-	-bios "$BL1" \
-	-drive if=pflash,format=raw,file="$WORK/pflash0.img" \
-	-drive if=pflash,format=raw,file="$WORK/pflash1.img" \
+	-bios "$FLASH" \
 	-drive if=none,id=hd0,format=raw,file="$WORK/disk.img" \
 	-device virtio-blk-device,drive=hd0 2>&1 | tee "$CHAIN_LOG"
 
@@ -63,5 +63,7 @@ done
 for m in "Boot: BL31" "## Flattened Device Tree"; do
 	if grep -qF "$m" "$CHAIN_LOG"; then printf 'seen  %s\n' "$m"; else printf 'n/a   %s\n' "$m"; fi
 done
-[ "$rc" -eq 0 ] && echo "chain complete: TF-A -> U-Boot -> Linux -> hello_demo driver"
+if [ "$rc" -eq 0 ]; then
+	echo "chain complete: TF-A -> U-Boot -> Linux -> hello_demo driver"
+fi
 exit "$rc"

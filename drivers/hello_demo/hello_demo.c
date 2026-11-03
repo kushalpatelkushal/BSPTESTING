@@ -47,6 +47,8 @@ static ssize_t hello_read(struct file *filp, char __user *buf, size_t count, lof
 	char msg[128];
 	int len;
 
+	// One count per read *sequence*, not per read() call: cat reads until EOF,
+	// so counting unconditionally would report 2 for a single open.
 	if (*ppos == 0)
 		priv->reads++;
 

@@ -2,7 +2,7 @@
 LAB_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="${WORK:-$LAB_ROOT/work}"
 
-ARCH=arm64
+ARCH="${ARCH:-arm64}"
 CROSS_COMPILE="${CROSS_COMPILE:-aarch64-linux-gnu-}"
 QEMU="${QEMU:-qemu-system-aarch64}"
 QEMU_MACHINE=virt
