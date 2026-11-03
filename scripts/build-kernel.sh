@@ -17,7 +17,6 @@ ENABLE=(
 	MODULES
 	OF
 	OF_DYNAMIC
-	OF_CONFIGFS
 	CONFIGFS_FS
 	SERIAL_AMBA_PL011
 	SERIAL_AMBA_PL011_CONSOLE
@@ -25,10 +24,15 @@ ENABLE=(
 )
 DISABLE=(DEBUG_INFO)
 
+# scripts/config takes the command and the symbol as two separate arguments.
+config_args=()
+for s in "${ENABLE[@]}"; do config_args+=(--enable "$s"); done
+for s in "${DISABLE[@]}"; do config_args+=(--disable "$s"); done
+
 if [ ! -f .config ]; then
 	say "defconfig"
 	make ARCH=$ARCH defconfig
-	./scripts/config --file .config "${ENABLE[@]/#/--enable}" "${DISABLE[@]/#/--disable}"
+	./scripts/config --file .config "${config_args[@]}"
 fi
 
 case "$PHASE" in
@@ -41,15 +45,19 @@ prepare)
 image)
 	INITRD="$WORK/initramfs.cpio.gz"
 	[ -f "$INITRD" ] || { echo "missing $INITRD -- run: make initramfs"; exit 1; }
+	# arm64 has no CMDLINE_BOOL: CONFIG_CMDLINE is a plain string and the
+	# CMDLINE_FROM_BOOTLOADER / CMDLINE_FORCE choice only appears once it is
+	# non-empty. From-bootloader is what we want, so do not force it.
 	./scripts/config --file .config \
 		--set-str INITRAMFS_SOURCE "$INITRD" \
-		--enable CMDLINE_BOOL \
-		--enable CMDLINE \
-		--set-str CMDLINE "console=ttyAMA0 rdinit=/init panic=-1" \
-		--disable CMDLINE_FORCE
+		--set-str CMDLINE "console=ttyAMA0 rdinit=/init panic=-1"
 	make ARCH=$ARCH olddefconfig
 	grep -E '^CONFIG_(INITRAMFS_SOURCE|CMDLINE)=' .config ||
 		echo "WARNING: INITRAMFS_SOURCE or CMDLINE not in the final config -- the kernel will boot without our initramfs"
+	# Everything the lab silently depends on. A symbol that quietly failed to
+	# enable shows up here instead of as an unexplained boot failure.
+	grep -E '^CONFIG_(BLK_DEV_INITRD|DEVTMPFS|DEVTMPFS_MOUNT|MODULES|OF|OF_DYNAMIC|CONFIGFS_FS|SERIAL_AMBA_PL011|SERIAL_AMBA_PL011_CONSOLE)=' .config ||
+		echo "WARNING: one or more lab config symbols are missing"
 	say "build Image with $(nproc) jobs"
 	time make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" -j"$(nproc)" Image
 	ls -lh arch/arm64/boot/Image

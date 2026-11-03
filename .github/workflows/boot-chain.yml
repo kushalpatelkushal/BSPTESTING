@@ -29,6 +29,9 @@ jobs:
     env:
       BOOT_TIMEOUT: 900
       BOOT_DELAY: 60
+      # fetch-sources.sh resolves the kernel from the GitHub API; runners share an
+      # egress IP and the anonymous limit is easy to hit.
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 

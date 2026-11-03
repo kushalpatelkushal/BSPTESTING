@@ -23,4 +23,11 @@ timeout "$BOOT_TIMEOUT" "$QEMU" \
 rc=${PIPESTATUS[0]}
 set -e
 echo "qemu exit=$rc (124 means it hit the ${BOOT_TIMEOUT}s timeout)"
-exit "$rc"
+# QEMU's exit code says nothing about the driver: poweroff can race the console
+# close, and a completed run still times out if PSCI sys_off is ignored.
+# check-log.sh is the verdict; this script only fails on a hard launch error.
+if [ "$rc" -eq 127 ] || [ ! -s "$BOOT_LOG" ]; then
+	echo "QEMU produced no boot log (exit $rc) -- the launch itself failed"
+	exit 1
+fi
+exit 0

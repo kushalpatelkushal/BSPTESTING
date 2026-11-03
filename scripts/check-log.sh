@@ -31,6 +31,11 @@ echo
 if [ "$fail" -eq 0 ]; then
 	echo "All checks passed: DT node -> platform driver -> sysfs + /dev/hello -> clean removal."
 else
-	echo "Checks failed. Full log: $LOG"
+	# Make a red CI run actionable without downloading the artifact.
+	echo "--- last 40 lines of $LOG ---"
+	tail -n 40 "$LOG"
+	echo "--- lines mentioning the driver, modules or errors ---"
+	grep -iE 'hello|insmod|modpost|unknown symbol|not tainted|error|warning|panic' "$LOG" |
+		tail -n 25 || true
 	exit 1
 fi

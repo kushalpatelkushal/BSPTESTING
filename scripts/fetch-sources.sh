@@ -52,8 +52,16 @@ kernel_version() {
 }
 
 busybox_tarball() {
-	curl -fsSL --max-time 60 https://busybox.net/downloads/ |
-		grep -oE 'busybox-1\.[0-9]+\.[0-9]+\.tar\.bz2' | sort -uV | tail -1
+	local t
+	# Pinned fallback: the download index is scraped, and an HTML change must not
+	# be able to break the build.
+	t=$(curl -fsSL --max-time 60 https://busybox.net/downloads/ |
+		grep -oE 'busybox-1\.[0-9]+\.[0-9]+\.tar\.bz2' | sort -uV | tail -1) || t=""
+	if [ -z "$t" ]; then
+		echo "note: could not scrape busybox.net, falling back to busybox-1.38.0" >&2
+		t=busybox-1.38.0.tar.bz2
+	fi
+	printf '%s\n' "$t"
 }
 
 say "linux kernel"
@@ -90,7 +98,10 @@ fi
 printf '%s\n' "$BBVER" >"$WORK/busybox.version"
 
 say "toolchain"
-"${CROSS_COMPILE}gcc" --version | sed -n '1p'
-"$QEMU" --version | sed -n '1p'
-dtc --version | sed -n '1p'
+# Captured into variables rather than piped through `sed -n 1p`: sed closes the
+# pipe after one line, the tool then takes SIGPIPE and pipefail fails the build.
+gcc_v=$("${CROSS_COMPILE}gcc" --version)
+qemu_v=$("$QEMU" --version)
+dtc_v=$(dtc --version)
+printf '%s\n%s\n%s\n' "${gcc_v%%$'\n'*}" "${qemu_v%%$'\n'*}" "${dtc_v%%$'\n'*}"
 echo "sources ready in $WORK"

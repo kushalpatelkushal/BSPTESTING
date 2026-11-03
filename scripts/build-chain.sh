@@ -25,8 +25,12 @@ say "tf-a: PLAT=qemu, BL33=u-boot.bin"
 make -C "$TFA" PLAT=qemu CROSS_COMPILE="$CROSS_COMPILE" \
 	BL33="$UBOOT/u-boot.bin" -j"$(nproc)" all fip
 
-BL1=$(find "$TFA/build/qemu" -name bl1.bin | sed -n '1p')
-FIP=$(find "$TFA/build/qemu" -name fip.bin | sed -n '1p')
+# mapfile instead of `find | sed -n 1p`: sed stops after one line, find then dies
+# of SIGPIPE and pipefail turns that into a silent build failure.
+mapfile -t bl1s < <(find "$TFA/build/qemu" -name bl1.bin)
+mapfile -t fips < <(find "$TFA/build/qemu" -name fip.bin)
+BL1=${bl1s[0]:-}
+FIP=${fips[0]:-}
 if [ -z "$BL1" ] || [ -z "$FIP" ]; then
 	echo "bl1.bin/fip.bin not found under $TFA/build/qemu"
 	exit 1

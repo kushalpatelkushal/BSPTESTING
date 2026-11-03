@@ -9,6 +9,8 @@ say "make work/disk.img (vfat)"
 DISK="$WORK/disk.img"
 rm -f "$DISK"
 dd if=/dev/zero of="$DISK" bs=1M count=64 status=none
+# superfloppy: FAT directly on the device, no MBR. So U-Boot addresses it as
+# "virtio 0", and "virtio 0:1" would be "invalid partition".
 mkfs.vfat -F 32 "$DISK" >/dev/null
 
 mcopy -i "$DISK" "$KDIR/arch/arm64/boot/Image" ::/Image

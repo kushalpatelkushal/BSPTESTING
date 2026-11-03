@@ -78,7 +78,8 @@ there is information, not a broken lab.
 ## Exercises that build on this
 
 - replace the injected node with a **runtime DT overlay** through configfs
-  (`CONFIG_OF_CONFIGFS` is already enabled) instead of rebuilding the DTB
+  (`/sys/kernel/config/device-tree/overlays/`, enabled here by `CONFIG_OF_DYNAMIC`
+  + `CONFIG_CONFIGFS_FS`) instead of rebuilding the DTB
 - add an `ioremap`-using variant: QEMU virt has a free MMIO window and a `pl061` GPIO
   controller to bind against
 - write an **I2C client driver** against QEMU's `versatile-i2c` adapter

@@ -17,7 +17,7 @@ REQUIRED=(
 	CAT ECHO LS GREP SED TR UNAME
 )
 BEST_EFFORT=(
-	DMSG MKNOD UMOUNT REBOOT HALT
+	DMESG MKNOD UMOUNT REBOOT HALT
 	FIND AWK CP MV MKDIR RM LN TOUCH
 	SLEEP DATE PRINTF TAIL HEAD WC TRUE TEST
 )
@@ -79,5 +79,7 @@ chmod +x "$ROOTFS/init"
 rm -f "$ROOTFS/linux"
 
 cd "$ROOTFS"
-find . | cpio --create --format=newc --quiet | gzip -9n >"$WORK/initramfs.cpio.gz"
+# owned by root in the archive: the kernel's initramfs unpacker keeps the uid/gid
+# from each cpio header, and the checkout user on a runner is uid 1000.
+find . | cpio --create --format=newc --quiet --owner 0:0 | gzip -9n >"$WORK/initramfs.cpio.gz"
 ls -lh "$WORK/initramfs.cpio.gz"

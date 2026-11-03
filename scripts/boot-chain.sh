@@ -21,22 +21,31 @@ for f in "$WORK/disk.img"; do
 	[ -f "$f" ] || { echo "missing $f -- run: make disk"; exit 1; }
 done
 
-# secure=on is mandatory here: BL1 runs at EL3 and QEMU virt defaults to it, but
-# spelling it out is what makes the failure mode obvious if the firmware stalls.
 say "booting chain in QEMU, feeding U-Boot commands after ${BOOT_DELAY}s"
+# Same cpu as the DTB was dumped with: hello.dtb describes cortex-a53 CPUs, and a
+# kernel whose DT lies about the running CPU prints feature mismatches.
+QEMU_CHAIN_CPU="${QEMU_CHAIN_CPU:-$QEMU_CPU}"
+# The U-Boot prompt closes as soon as Linux powers off, so the feed side dies of
+# SIGPIPE and QEMU may be killed by `timeout`. Neither is a lab failure -- the
+# assertions below read the log. Disable errexit/pipefail for this pipeline only.
+set +e; set +o pipefail
 {
 	sleep "$BOOT_DELAY"
 	printf 'version\r'
 	sleep 3
-	printf 'setenv bootargs "console=ttyAMA0 rdinit=/init"\r'
+	printf 'setenv kernel_addr_r 0x44000000; setenv fdt_addr_r 0x48000000\r'
+	sleep 2
+	printf 'setenv bootargs "console=ttyAMA0 rdinit=/init panic=-1"\r'
 	sleep 2
 	printf 'virtio scan\r'
 	sleep 3
-	printf 'fatls virtio 0:1\r'
+	# disk.img is a superfloppy (mkfs.vfat with no MBR), so the whole device is
+	# the FAT volume: "virtio 0", never "virtio 0:1".
+	printf 'fatls virtio 0\r'
 	sleep 3
-	printf 'fatload virtio 0:1 $kernel_addr_r Image\r'
+	printf 'fatload virtio 0 $kernel_addr_r Image\r'
 	sleep 6
-	printf 'fatload virtio 0:1 $fdt_addr_r hello.dtb\r'
+	printf 'fatload virtio 0 $fdt_addr_r hello.dtb\r'
 	sleep 4
 	# No ramdisk: the initramfs is embedded in Image by CONFIG_INITRAMFS_SOURCE.
 	printf 'booti $kernel_addr_r - $fdt_addr_r\r'
@@ -47,6 +56,9 @@ say "booting chain in QEMU, feeding U-Boot commands after ${BOOT_DELAY}s"
 	-bios "$FLASH" \
 	-drive if=none,id=hd0,format=raw,file="$WORK/disk.img" \
 	-device virtio-blk-device,drive=hd0 2>&1 | tee "$CHAIN_LOG"
+qemu_rc=${PIPESTATUS[1]}
+set -euo pipefail
+echo "qemu exit: $qemu_rc (124 = timed out)"
 
 say "chain assertions"
 rc=0

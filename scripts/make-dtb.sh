@@ -9,7 +9,8 @@ say "dump QEMU virt dtb"
 # Dump with the same cpu/memory topology as boot.sh: this DTB is what the kernel
 # will actually see, so a mismatched CPU or memory node would silently lie.
 "$QEMU" -machine "$QEMU_MACHINE,dumpdtb=$WORK/virt-plain.dtb" -cpu "$QEMU_CPU" \
-	-m "$QEMU_MEM" -smp "$QEMU_SMP" -nographic >/dev/null 2>&1
+	-m "$QEMU_MEM" -smp "$QEMU_SMP" -nographic 2>&1 | tee "$WORK/dumpdtb.log" || true
+[ -s "$WORK/virt-plain.dtb" ] || { echo "QEMU wrote no dtb (see dumpdtb.log)"; exit 1; }
 dtc -I dtb -O dts -o "$WORK/virt-plain.dts" "$WORK/virt-plain.dtb"
 
 say "insert hello-demo node at /"

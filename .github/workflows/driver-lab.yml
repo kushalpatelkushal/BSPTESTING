@@ -30,7 +30,7 @@ concurrency:
 jobs:
   lab:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       FORCE_KERNEL_VERSION: ${{ inputs.kernel_version }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -48,9 +48,10 @@ jobs:
 
       - name: Toolchain and disk
         run: |
-          aarch64-linux-gnu-gcc --version | sed -n 1p
-          qemu-system-aarch64 --version | sed -n 1p
-          dtc --version | sed -n 1p
+          # awk, not `sed -n 1p`: sed stops reading and the tool dies of SIGPIPE.
+          aarch64-linux-gnu-gcc --version | awk 'NR == 1'
+          qemu-system-aarch64 --version | awk 'NR == 1'
+          dtc --version | awk 'NR == 1'
           df -h "$GITHUB_WORKSPACE" | tail -1
 
       - name: Resolve and download sources
