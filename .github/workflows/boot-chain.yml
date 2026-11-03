@@ -41,7 +41,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential bc bison flex ca-certificates curl git swig python3 \
             libssl-dev libelf-dev device-tree-compiler cpio xz-utils \
-            gcc-aarch64-linux-gnu qemu-system-arm dosfstools mtools u-boot-tools
+            gcc-aarch64-linux-gnu libc6-dev-arm64-cross qemu-system-arm \
+            dosfstools mtools u-boot-tools
 
       - name: Build kernel, initramfs and patched DTB
         run: make all

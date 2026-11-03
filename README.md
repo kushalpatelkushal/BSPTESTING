@@ -55,9 +55,17 @@ prodding it), or manually with an optional pinned kernel version.
 
 ```sh
 sudo apt-get install -y build-essential bc bison flex git libssl-dev libelf-dev \
-  device-tree-compiler cpio xz-utils python3 kmod qemu-system-arm gcc-aarch64-linux-gnu
+  device-tree-compiler cpio xz-utils python3 kmod qemu-system-arm \
+  gcc-aarch64-linux-gnu libc6-dev-arm64-cross
 make all && make boot && make check
 ```
+
+`libc6-dev-arm64-cross` is not decoration. The kernel builds freestanding, so a bare
+cross compiler is enough for it -- but busybox is a *static userspace* binary, and
+without the target C library it dies on `applets/applets.c` with
+`bits/libc-header-start.h: No such file`. `make fetch` self-tests this by linking a
+three-line program, so the missing package is named in seconds rather than surfacing
+ten minutes later as a compiler error.
 
 **Cloud ARM VM** (Oracle Ampere free tier, AWS Graviton): `bash cloud/arm-vm-setup.sh`,
 then `make all CROSS_COMPILE=` and `make boot CROSS_COMPILE= QEMU_EXTRA='-accel kvm'`.

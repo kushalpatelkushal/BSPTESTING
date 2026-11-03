@@ -50,7 +50,7 @@ set +e; set +o pipefail
 	# No ramdisk: the initramfs is embedded in Image by CONFIG_INITRAMFS_SOURCE.
 	printf 'booti $kernel_addr_r - $fdt_addr_r\r'
 } | timeout "$BOOT_TIMEOUT" "$QEMU" \
-	-machine virt,secure=on -cpu "${QEMU_CHAIN_CPU:-cortex-a57}" -smp 2 -m 1024 \
+	-machine virt,secure=on -cpu "$QEMU_CHAIN_CPU" -smp "$QEMU_SMP" -m "$QEMU_MEM" \
 	-nographic \
 	-semihosting-config enable=on,target=native \
 	-bios "$FLASH" \

@@ -43,6 +43,9 @@ kernel: initramfs
 boot: all
 	bash $(SCRIPTS)/boot.sh
 
+# Reads work/boot.log. Deliberately has no prerequisites: the CI check step runs
+# it with `if: always()`, and a phony dependency here would rebuild the whole
+# kernel a second time.
 check:
 	bash $(SCRIPTS)/check-log.sh
 

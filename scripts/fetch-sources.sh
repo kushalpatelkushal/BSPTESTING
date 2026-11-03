@@ -105,3 +105,20 @@ qemu_v=$("$QEMU" --version)
 dtc_v=$(dtc --version)
 printf '%s\n%s\n%s\n' "${gcc_v%%$'\n'*}" "${qemu_v%%$'\n'*}" "${dtc_v%%$'\n'*}"
 echo "sources ready in $WORK"
+
+say "toolchain self-test"
+# busybox links a *static userspace binary*, which needs more than a cross
+# compiler: the target C library headers and libc.a. Linking a three-line
+# program here costs a second and names the missing package, instead of the
+# same problem surfacing ten minutes later as a busybox compile error.
+CHECK="$WORK/.toolcheck"
+printf 'int main(void){return 0;}\n' >"$CHECK.c"
+if "${CROSS_COMPILE}gcc" -static -o "$CHECK" "$CHECK.c" 2>"$CHECK.err"; then
+	echo "static $ARCH linking works"
+else
+	cat "$CHECK.err"
+	echo "the cross toolchain cannot link a static $ARCH program."
+	echo "On x86 CI that means the target C library is missing: sudo apt-get install libc6-dev-$ARCH-cross"
+	exit 1
+fi
+rm -f "$CHECK" "$CHECK.c" "$CHECK.err"

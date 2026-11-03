@@ -17,6 +17,7 @@ ENABLE=(
 	MODULES
 	OF
 	OF_DYNAMIC
+	OF_OVERLAY
 	CONFIGFS_FS
 	SERIAL_AMBA_PL011
 	SERIAL_AMBA_PL011_CONSOLE
@@ -56,7 +57,7 @@ image)
 		echo "WARNING: INITRAMFS_SOURCE or CMDLINE not in the final config -- the kernel will boot without our initramfs"
 	# Everything the lab silently depends on. A symbol that quietly failed to
 	# enable shows up here instead of as an unexplained boot failure.
-	grep -E '^CONFIG_(BLK_DEV_INITRD|DEVTMPFS|DEVTMPFS_MOUNT|MODULES|OF|OF_DYNAMIC|CONFIGFS_FS|SERIAL_AMBA_PL011|SERIAL_AMBA_PL011_CONSOLE)=' .config ||
+	grep -E '^CONFIG_(BLK_DEV_INITRD|DEVTMPFS|DEVTMPFS_MOUNT|MODULES|OF|OF_DYNAMIC|OF_OVERLAY|CONFIGFS_FS|SERIAL_AMBA_PL011|SERIAL_AMBA_PL011_CONSOLE)=' .config ||
 		echo "WARNING: one or more lab config symbols are missing"
 	say "build Image with $(nproc) jobs"
 	time make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" -j"$(nproc)" Image

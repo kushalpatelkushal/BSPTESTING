@@ -44,7 +44,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential bc bison flex ca-certificates curl git \
             libssl-dev libelf-dev device-tree-compiler cpio xz-utils python3 kmod \
-            gcc-aarch64-linux-gnu qemu-system-arm
+            gcc-aarch64-linux-gnu libc6-dev-arm64-cross qemu-system-arm
 
       - name: Toolchain and disk
         run: |
@@ -73,6 +73,8 @@ jobs:
         run: make kernel
 
       - name: Boot headless in QEMU
+        # Whether QEMU exited cleanly is not the verdict; the assertions below are.
+        continue-on-error: true
         run: make boot
 
       - name: Assert driver results
