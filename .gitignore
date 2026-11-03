@@ -1,0 +1,11 @@
+work/
+cloud/disk/
+*.o
+*.ko
+*.mod
+*.mod.c
+*.order
+*.symtypes
+modules.order
+Module.symvers
+.cache/

@@ -1,0 +1,54 @@
+#!/bin/sh
+# Runs as PID 1 inside the initramfs. Prints "Result:" lines that
+# scripts/check-log.sh asserts on, so a headless CI run is a real test.
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+echo "Result: kernel-loaded"
+echo "Result: uname=$(uname -srm)"
+
+mount -t proc proc /proc || echo "Result: mount-proc=FAIL"
+mount -t sysfs sysfs /sys || echo "Result: mount-sys=FAIL"
+mount -t devtmpfs devtmpfs /dev || echo "Result: mount-dev=FAIL"
+
+DTNODE=/sys/firmware/devicetree/base/hello-demo
+if [ -d "$DTNODE" ]; then
+	echo "Result: dt-node=found"
+	echo "  compatible: $(cat "$DTNODE/compatible" 2>/dev/null)"
+else
+	echo "Result: dt-node=MISSING"
+fi
+
+echo "--- platform devices visible before insmod ---"
+ls /sys/devices/platform | tr '\n' ' '
+echo ""
+
+if insmod /lib/modules/hello_demo.ko; then
+	echo "Result: insmod=OK"
+else
+	echo "Result: insmod=FAIL"
+fi
+
+echo "--- last dmesg lines ---"
+dmesg | tail -n 12
+
+DEVPATH=$(find /sys/devices/platform -maxdepth 1 -name 'hello-demo*' | sed -n '1p')
+echo "Result: sysfs-path=$DEVPATH"
+echo "Result: sysfs-channels=$(cat "$DEVPATH/channels" 2>/dev/null)"
+echo "Result: sysfs-model=$(cat "$DEVPATH/model" 2>/dev/null)"
+echo "Result: dev-read=$(cat /dev/hello 2>/dev/null)"
+echo "Result: dev-read-again=$(cat /dev/hello 2>/dev/null)"
+
+if rmmod hello_demo; then
+	echo "Result: rmmod=OK"
+else
+	echo "Result: rmmod=FAIL"
+fi
+
+if [ -e /dev/hello ]; then
+	echo "Result: leftover-devnode=yes"
+else
+	echo "Result: leftover-devnode=no"
+fi
+
+echo "Result: lab-complete"
+poweroff -f

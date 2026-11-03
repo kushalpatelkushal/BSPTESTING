@@ -1,0 +1,12 @@
+	/*
+	 * Injected into the QEMU virt device tree by scripts/make-dtb.sh so a
+	 * platform driver can bind to it without any real board.
+	 * No reg property: this device exists to exercise DT property parsing,
+	 * of_match binding, sysfs attributes and a misc /dev node.
+	 */
+	hello-demo {
+		compatible = "qoder,hello-demo";
+		qoder,channels = <3>;
+		qoder,model = "board-free BSP lab";
+		status = "okay";
+	};

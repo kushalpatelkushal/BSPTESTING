@@ -1,0 +1,87 @@
+name: driver lab (QEMU arm64, no board)
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_version:
+        description: "Force a kernel version (blank = newest LTS from kernel.org)"
+        required: false
+        default: ""
+  push:
+    branches: [main]
+    paths:
+      - "drivers/**"
+      - "rootfs/**"
+      - "scripts/**"
+      - "dts/**"
+      - "Makefile"
+      - ".github/workflows/driver-lab.yml"
+  pull_request:
+  schedule:
+    - cron: "0 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lab:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      FORCE_KERNEL_VERSION: ${{ inputs.kernel_version }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BOOT_TIMEOUT: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross toolchain, QEMU, dtc
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bc bison flex ca-certificates curl git \
+            libssl-dev libelf-dev device-tree-compiler cpio xz-utils python3 kmod \
+            gcc-aarch64-linux-gnu qemu-system-arm
+
+      - name: Toolchain and disk
+        run: |
+          aarch64-linux-gnu-gcc --version | sed -n 1p
+          qemu-system-aarch64 --version | sed -n 1p
+          dtc --version | sed -n 1p
+          df -h "$GITHUB_WORKSPACE" | tail -1
+
+      - name: Resolve and download sources
+        run: make fetch
+
+      - name: Build arm64 kernel Image
+        run: make kernel
+
+      - name: Build initramfs with hello_demo.ko
+        run: make initramfs
+
+      - name: Patch the QEMU device tree
+        run: make dtb
+
+      - name: Show the injected node
+        run: dtc -I dtb -O dts work/virt-hello.dtb | sed -n '/hello-demo/,/};/p'
+
+      - name: Boot in QEMU
+        run: make boot
+
+      - name: Assert driver results
+        if: always()
+        run: make check
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qemu-arm64-boot
+          path: |
+            work/boot.log
+            work/initramfs.cpio.gz
+            work/virt-hello.dtb
+            work/virt-hello.dts
+          if-no-files-found: warn

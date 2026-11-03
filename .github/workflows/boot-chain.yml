@@ -1,0 +1,62 @@
+name: boot chain (TF-A + U-Boot -> Linux)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build-chain.sh"
+      - "scripts/boot-chain.sh"
+      - "scripts/make-disk.sh"
+      - ".github/workflows/boot-chain.yml"
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # The boot-chain job tracks mainline U-Boot and TF-A, so it is allowed to go
+    # red without taking the driver lab down with it.
+    continue-on-error: true
+    env:
+      BOOT_TIMEOUT: 900
+      BOOT_DELAY: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain, QEMU, dtc, mtools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bc bison flex ca-certificates curl git swig python3 \
+            libssl-dev libelf-dev device-tree-compiler cpio xz-utils \
+            gcc-aarch64-linux-gnu qemu-system-arm dosfstools mtools u-boot-tools
+
+      - name: Build kernel, initramfs and patched DTB
+        run: make all
+
+      - name: Build U-Boot (BL33) and ARM Trusted Firmware
+        run: make chain-build
+
+      - name: Build virtio FAT disk
+        run: make disk
+
+      - name: Run the full chain in QEMU
+        run: make chain-boot
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: boot-chain-log
+          path: |
+            work/chain.log
+            work/chain.env
+          if-no-files-found: warn
