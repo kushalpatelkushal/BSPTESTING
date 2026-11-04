@@ -31,3 +31,24 @@ PY
 say "compile dtb"
 dtc -I dts -O dtb -o "$WORK/virt-hello.dtb" "$WORK/virt-hello.dts"
 dtc -I dtb -O dts "$WORK/virt-hello.dtb" 2>/dev/null | sed -n '/hello-demo/,/};/p'
+
+# Evidence, not a build step: the boot chain runs QEMU with -machine virt,secure=on
+# (TF-A needs EL3) while this DTB was dumped from the plain non-secure machine, and
+# the chain boot has been silent. Print what actually differs between the two
+# descriptions so "the DTB is wrong for the secure machine" can be confirmed or
+# thrown away instead of argued about. QEMU's own hw/arm/virt.c sets the /intc reg,
+# the /timer interrupts and the non-secure /pl011 node from gic-version and the
+# memory map only -- not from vms->secure -- so the expected difference is limited to
+# secure-world additions (/secure-chosen, /pl011@9400000, secure RAM, secure GPIO)
+# and secure-status properties, none of which a non-secure kernel reads.
+say "compare non-secure and secure machine descriptions"
+if timeout 60 "$QEMU" -machine "$QEMU_MACHINE,secure=on,dumpdtb=$WORK/virt-secure.dtb" -cpu "$QEMU_CPU" \
+	-m "$QEMU_MEM" -smp "$QEMU_SMP" -nographic -nic none >"$WORK/dumpdtb-secure.log" 2>&1 &&
+	[ -s "$WORK/virt-secure.dtb" ]; then
+	dtc -I dtb -O dts -o "$WORK/virt-secure.dts" "$WORK/virt-secure.dtb"
+	echo "--- nodes/properties that differ (plain vs secure) ---"
+	diff "$WORK/virt-plain.dts" "$WORK/virt-secure.dts" | sed -n '1,60p' || true
+else
+	echo "note: could not dump a secure=on dtb; QEMU said:"
+	tail -n 5 "$WORK/dumpdtb-secure.log" 2>/dev/null || true
+fi

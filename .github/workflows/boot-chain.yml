@@ -4,10 +4,21 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    # Everything this job actually boots. rootfs/init, dts/ and drivers/ are here
+    # because the chain loads the same Image with the same initramfs and the same
+    # patched DTB as the driver lab: when they were missing, the /dev/console fix
+    # proved up in the driver lab and this job stayed stale and red.
     paths:
       - "scripts/build-chain.sh"
       - "scripts/boot-chain.sh"
       - "scripts/make-disk.sh"
+      - "scripts/make-dtb.sh"
+      - "scripts/build-kernel.sh"
+      - "scripts/build-initramfs.sh"
+      - "scripts/fetch-sources.sh"
+      - "rootfs/**"
+      - "dts/**"
+      - "drivers/**"
       - ".github/workflows/boot-chain.yml"
   schedule:
     - cron: "0 4 * * 1"
@@ -27,7 +38,10 @@ jobs:
     # red without taking the driver lab down with it.
     continue-on-error: true
     env:
-      BOOT_TIMEOUT: 900
+      # 300s, not 900s: U-Boot answers at ~60s and Linux takes under a minute more,
+      # so a run that has not printed its Result: lines by now is not going to.
+      # A shorter timeout makes a red round cheap instead of burning 15 idle minutes.
+      BOOT_TIMEOUT: 300
       BOOT_DELAY: 60
       # fetch-sources.sh resolves the kernel from the GitHub API; runners share an
       # egress IP and the anonymous limit is easy to hit.
