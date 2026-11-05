@@ -52,10 +52,12 @@ echo "Result: sysfs-model=$(cat "$DEVPATH/model" 2>/dev/null)"
 echo "Result: dev-read=$(cat /dev/hello 2>/dev/null)"
 echo "Result: dev-read-again=$(cat /dev/hello 2>/dev/null)"
 
-if rmmod hello_demo; then
-	echo "Result: rmmod=OK"
-else
+# /sys/module/<name> is the truth; busybox rmmod can exit 0 on failure (see lab 2).
+rmmod hello_demo
+if [ -d /sys/module/hello_demo ]; then
 	echo "Result: rmmod=FAIL"
+else
+	echo "Result: rmmod=OK"
 fi
 
 if [ -e /dev/hello ]; then
@@ -151,17 +153,27 @@ grep Poweroff /proc/interrupts
 echo "--- /sys/kernel/debug/labgpio/regs ---"
 cat /sys/kernel/debug/labgpio/regs 2>/dev/null
 
-# Module lifetime: a consumer holding a line pins the provider module.
-if rmmod labgpio 2>/dev/null; then
-	echo "Result: gpio-rmmod-in-use=allowed"
-else
+# Module lifetime: a consumer holding a line pins the provider module
+# (gpiolib does try_module_get(gc->owner) on request and on IRQ use).
+#
+# Judge by kernel state, never by rmmod's exit code: busybox's small rmmod
+# (CONFIG_MODPROBE_SMALL) prints the error and still exits 0. The first
+# version of this lab trusted the exit code and reported "allowed" while the
+# kernel had in fact refused.
+echo "Result: gpio-refcnt-in-use=$(cat /sys/module/labgpio/refcnt 2>/dev/null)"
+rmmod labgpio 2>&1 | sed 's/^/  rmmod says: /'
+if [ -d /sys/module/labgpio ]; then
 	echo "Result: gpio-rmmod-in-use=refused"
+else
+	echo "Result: gpio-rmmod-in-use=allowed"
 fi
 echo gpio-keys > /sys/bus/platform/drivers/gpio-keys/unbind 2>/dev/null
-if rmmod labgpio; then
-	echo "Result: gpio-rmmod=OK"
-else
+echo "Result: gpio-refcnt-after-unbind=$(cat /sys/module/labgpio/refcnt 2>/dev/null)"
+rmmod labgpio
+if [ -d /sys/module/labgpio ]; then
 	echo "Result: gpio-rmmod=FAIL"
+else
+	echo "Result: gpio-rmmod=OK"
 fi
 if [ -n "$CHIP" ] && [ -e "$CHIP" ]; then
 	echo "Result: gpio-chip-after-rmmod=present"

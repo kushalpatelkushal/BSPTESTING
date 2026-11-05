@@ -39,6 +39,7 @@ expect "Result: gpio-keys=bound"
 expect "Result: gpio-line3 line=3 busy=yes"
 expect "Result: gpio-irq=fired"
 expect "Result: gpio-rmmod-in-use=refused"
+expect "Result: gpio-refcnt-after-unbind=0"
 expect "Result: gpio-rmmod=OK"
 expect "Result: gpio-chip-after-rmmod=gone"
 
