@@ -36,6 +36,10 @@ The assertion step is what makes this a lab rather than a demo: the checks live 
 | Path | Purpose |
 |---|---|
 | `drivers/hello_demo/hello_demo.c` | OF-matched platform driver: `of_property_read_u32`/`_string`, `dev_groups` sysfs attrs, miscdevice |
+| `drivers/labgpio/labgpio.c` | Lab 2: PL061 AMBA driver -- `ioremap`, `gpio_chip`, chained `irq_chip`, debugfs. See `docs/lab02-gpio.md` |
+| `tools/gpiotest/gpiotest.c` | static GPIO uAPI v2 client run inside the initramfs |
+| `scripts/qmp-stimulus.py` | host test bench: presses QEMU's power button (PL061 line 3) over QMP |
+| `docs/ROADMAP.md` | the full curriculum, level by level |
 | `dts/hello-demo-node.dtsi` | the node injected into QEMU's device tree |
 | `rootfs/init` | PID 1 in the initramfs; prints the `Result:` lines CI asserts on |
 | `scripts/make-dtb.sh` | dtc round-trip: dump -> decompile -> insert -> recompile |
@@ -88,9 +92,9 @@ there is information, not a broken lab.
 - replace the injected node with a **runtime DT overlay** through configfs
   (`/sys/kernel/config/device-tree/overlays/`, enabled here by `CONFIG_OF_DYNAMIC`
   + `CONFIG_CONFIGFS_FS`) instead of rebuilding the DTB
-- add an `ioremap`-using variant: QEMU virt has a free MMIO window and a `pl061` GPIO
-  controller to bind against
-- write an **I2C client driver** against QEMU's `versatile-i2c` adapter
+- ~~add an `ioremap`-using variant against the `pl061`~~ done: `drivers/labgpio`, lab 2
+- write an **I2C client driver** against `i2c-stub`, or switch to an i.MX6 QEMU machine
+  (`-M mcimx6ul-evk`) for a real I2C controller -- QEMU `virt` has no I2C bus
 - probe deferral: make the driver need a clock that is not ready and watch `-EPROBE_DEFER`
 - threaded IRQs: `pl011` or the virtio ring, poll vs. hardirq vs. `request_threaded_irq`
 - storage: `fio` + `blktrace` against the emulated NVMe, then the same on a cloud ARM VM

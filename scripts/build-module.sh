@@ -4,8 +4,6 @@ set -euo pipefail
 source "$(dirname "$0")/env.sh"
 KDIR=$(KDIR)
 
-KO="$LAB_ROOT/drivers/hello_demo/hello_demo.ko"
-
 # The kernel tree is only modules_prepare'd at this point -- vmlinux has not been
 # linked, so there is no Module.symvers for modpost to check symbols against.
 # Without this it reports "ERROR: modpost: misc_register ... undefined!" and
@@ -19,9 +17,16 @@ if [ ! -f "$KDIR/Module.symvers" ]; then
 	modpost_args=(KBUILD_MODPOST_WARN=1)
 fi
 
-make -C "$KDIR" M="$LAB_ROOT/drivers/hello_demo" ARCH=$ARCH \
-	"${modpost_args[@]}" CROSS_COMPILE="$CROSS_COMPILE" modules
-ls -lh "$KO"
-# awk, not `sed -n 1,12p`: sed stops reading and modinfo then dies of SIGPIPE,
-# which pipefail turns into a build failure.
-modinfo "$KO" | awk 'NR <= 12'
+# Every directory under drivers/ with a Makefile is one out-of-tree module.
+for d in "$LAB_ROOT"/drivers/*/; do
+	d=${d%/}
+	[ -f "$d/Makefile" ] || continue
+	say "module: $(basename "$d")"
+	make -C "$KDIR" M="$d" ARCH=$ARCH 		"${modpost_args[@]}" CROSS_COMPILE="$CROSS_COMPILE" modules
+	for ko in "$d"/*.ko; do
+		ls -lh "$ko"
+		# awk, not `sed -n 1,12p`: sed stops reading and modinfo then dies of
+		# SIGPIPE, which pipefail turns into a build failure.
+		modinfo "$ko" | awk 'NR <= 12'
+	done
+done

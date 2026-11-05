@@ -14,6 +14,7 @@ on:
       - "rootfs/**"
       - "scripts/**"
       - "dts/**"
+      - "tools/**"
       - "Makefile"
       - ".github/workflows/driver-lab.yml"
   pull_request:

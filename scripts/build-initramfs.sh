@@ -15,11 +15,12 @@ REQUIRED=(
 	INSMOD RMMOD LSMOD
 	MOUNT POWEROFF
 	CAT ECHO LS GREP SED TR UNAME
+	SLEEP AWK TEST
 )
 BEST_EFFORT=(
 	DMESG MKNOD UMOUNT REBOOT HALT
 	FIND AWK CP MV MKDIR RM LN TOUCH
-	SLEEP DATE PRINTF TAIL HEAD WC TRUE TEST
+	DATE PRINTF TAIL HEAD WC TRUE
 )
 # busybox `defconfig` turns ~400 applets on, and some of them are compiled against
 # the host's kernel uapi headers. tc.c references CBQ (struct tc_cbq_*), which was
@@ -93,10 +94,21 @@ time make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" -j"$(nproc)"
 rm -rf "$ROOTFS"
 make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" CONFIG_PREFIX="$ROOTFS" install >/dev/null
 
-say "hello_demo.ko"
+say "out-of-tree modules"
 bash "$LAB_ROOT/scripts/build-module.sh"
 mkdir -p "$ROOTFS/lib/modules"
-cp "$LAB_ROOT/drivers/hello_demo/hello_demo.ko" "$ROOTFS/lib/modules/"
+cp "$LAB_ROOT"/drivers/*/*.ko "$ROOTFS/lib/modules/"
+ls "$ROOTFS/lib/modules"
+
+say "userspace test tools"
+# Static, so they need nothing from the initramfs. <linux/gpio.h> comes from the
+# arm64 cross kernel headers that libc6-dev-arm64-cross already pulls in.
+for t in "$LAB_ROOT"/tools/*/; do
+	t=${t%/}
+	name=$(basename "$t")
+	"${CROSS_COMPILE}gcc" -static -O2 -Wall -Wextra -o "$ROOTFS/bin/$name" "$t/$name.c"
+	ls -lh "$ROOTFS/bin/$name"
+done
 
 say "initramfs"
 mkdir -p "$ROOTFS"/{proc,sys,dev,etc,tmp}

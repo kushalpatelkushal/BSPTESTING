@@ -64,5 +64,110 @@ else
 	echo "Result: leftover-devnode=no"
 fi
 
+###########################################################################
+# Lab 2: drivers/labgpio -- a real MMIO + interrupt-controller driver for the
+# PL061 GPIO block at 0x09030000. The in-kernel gpio-pl061 is compiled out, so
+# until labgpio loads the device exists on the AMBA bus with no driver, and
+# gpio-keys (QEMU's power button, PL061 line 3) is stuck waiting for it.
+###########################################################################
+echo "--- lab 2: PL061 GPIO, MMIO + chained IRQ ---"
+mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
+
+AMBA=/sys/bus/amba/devices/9030000.pl061
+GKEYS=/sys/bus/platform/drivers/gpio-keys/gpio-keys
+
+if [ -e "$AMBA/driver" ]; then
+	echo "Result: gpio-pl061-before=bound"
+else
+	echo "Result: gpio-pl061-before=unbound"
+fi
+if [ -e "$GKEYS" ]; then
+	echo "Result: gpio-keys-before=bound"
+else
+	echo "Result: gpio-keys-before=waiting"
+fi
+echo "  devices_deferred: $(cat /sys/kernel/debug/devices_deferred 2>/dev/null | tr '\n' ';')"
+
+if insmod /lib/modules/labgpio.ko; then
+	echo "Result: gpio-insmod=OK"
+else
+	echo "Result: gpio-insmod=FAIL"
+fi
+sleep 1
+
+CHIP=""
+for c in /dev/gpiochip*; do
+	[ -c "$c" ] || continue
+	if gpiotest "$c" info | grep -q 'label=9030000.pl061'; then
+		CHIP=$c
+	fi
+done
+echo "Result: gpio-chip $(gpiotest "$CHIP" info 2>&1)"
+
+# Output path: drive each free line high then low and read it back through
+# the data register. Line 3 is skipped: gpio-keys owns it.
+for l in 0 1 2; do
+	echo "Result: gpio-loop $(gpiotest "$CHIP" loop $l 2>&1)"
+done
+
+# Registering a gpiochip triggers a deferred-probe pass; gpio-keys should now
+# find its GPIO. If it gave up earlier, ask the bus to probe it again.
+how=deferred-probe
+if [ ! -e "$GKEYS" ]; then
+	echo gpio-keys > /sys/bus/platform/drivers_probe 2>/dev/null
+	sleep 1
+	how=manual-probe
+fi
+if [ -e "$GKEYS" ]; then
+	echo "Result: gpio-keys=bound via $how"
+else
+	echo "Result: gpio-keys=unbound"
+fi
+echo "Result: gpio-line3 $(gpiotest "$CHIP" busy 3 2>&1)"
+
+# Interrupt path. The host watches for the marker and sends QMP
+# system_powerdown, which pulses line 3. Count the IRQs gpio-keys receives.
+irqcount() {
+	awk '/Poweroff/ { s = 0; for (i = 2; i <= NF; i++) { if ($i ~ /^[0-9]+$/) s += $i; else break } print s; exit }' /proc/interrupts
+}
+before=$(irqcount)
+before=${before:-0}
+echo "Result: gpio-wait-powerbtn"
+now=$before
+i=0
+while [ "$i" -lt 20 ]; do
+	sleep 1
+	now=$(irqcount)
+	now=${now:-0}
+	[ "$now" -gt "$before" ] && break
+	i=$((i + 1))
+done
+if [ "$now" -gt "$before" ]; then
+	echo "Result: gpio-irq=fired ($before -> $now)"
+else
+	echo "Result: gpio-irq=none (no host stimulus within 20s)"
+fi
+grep Poweroff /proc/interrupts
+echo "--- /sys/kernel/debug/labgpio/regs ---"
+cat /sys/kernel/debug/labgpio/regs 2>/dev/null
+
+# Module lifetime: a consumer holding a line pins the provider module.
+if rmmod labgpio 2>/dev/null; then
+	echo "Result: gpio-rmmod-in-use=allowed"
+else
+	echo "Result: gpio-rmmod-in-use=refused"
+fi
+echo gpio-keys > /sys/bus/platform/drivers/gpio-keys/unbind 2>/dev/null
+if rmmod labgpio; then
+	echo "Result: gpio-rmmod=OK"
+else
+	echo "Result: gpio-rmmod=FAIL"
+fi
+if [ -n "$CHIP" ] && [ -e "$CHIP" ]; then
+	echo "Result: gpio-chip-after-rmmod=present"
+else
+	echo "Result: gpio-chip-after-rmmod=gone"
+fi
+
 echo "Result: lab-complete"
 poweroff -f

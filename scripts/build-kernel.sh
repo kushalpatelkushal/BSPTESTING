@@ -22,8 +22,30 @@ ENABLE=(
 	SERIAL_AMBA_PL011
 	SERIAL_AMBA_PL011_CONSOLE
 	KALLSYMS
+	GPIOLIB
+	GPIO_CDEV
+	KEYBOARD_GPIO
+	DEBUG_FS
 )
-DISABLE=(DEBUG_INFO)
+# GPIO_PL061 off: the lab's own drivers/labgpio is the PL061 driver. If the
+# in-kernel one were built in, it would bind first and ours would never probe.
+DISABLE=(DEBUG_INFO GPIO_PL061)
+
+# Symbols a module depends on but cannot turn on itself. GPIOLIB_IRQCHIP is a
+# hidden bool that only a `select` can enable: with GPIO_PL061 gone, it stays on
+# only because other defconfig GPIO drivers (DWAPB, MXC, ...) select it.
+verify_config() {
+	local bad=0
+	for s in GPIOLIB GPIOLIB_IRQCHIP GPIO_CDEV KEYBOARD_GPIO DEBUG_FS; do
+		grep -q "^CONFIG_$s=y" .config || { echo "config: CONFIG_$s is not =y"; bad=1; }
+	done
+	if grep -q '^CONFIG_GPIO_PL061=[ym]' .config; then
+		echo "config: CONFIG_GPIO_PL061 is on, it would steal the device from labgpio"
+		bad=1
+	fi
+	[ "$bad" -eq 0 ] || exit 1
+	echo "GPIO lab config verified"
+}
 
 # scripts/config takes the command and the symbol as two separate arguments.
 config_args=()
@@ -40,6 +62,7 @@ case "$PHASE" in
 prepare)
 	./scripts/config --file .config --disable INITRAMFS_SOURCE
 	make ARCH=$ARCH olddefconfig
+	verify_config
 	say "modules_prepare"
 	make ARCH=$ARCH CROSS_COMPILE="$CROSS_COMPILE" -j"$(nproc)" modules_prepare
 	;;
