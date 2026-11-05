@@ -1,0 +1,19 @@
+{
+  // GitHub Codespaces / VS Code dev container for the lab: the whole local
+  // build loop (make all / boot / check) without using any disk on your PC.
+  "name": "BSP lab (arm64 cross + QEMU)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "hostRequirements": {
+    "cpus": 4,
+    "storage": "32gb"
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y --no-install-recommends build-essential bc bison flex git libssl-dev libelf-dev device-tree-compiler cpio xz-utils python3 kmod qemu-system-arm gcc-aarch64-linux-gnu libc6-dev-arm64-cross dosfstools mtools ccache",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "plorefice.devicetree"
+      ]
+    }
+  }
+}

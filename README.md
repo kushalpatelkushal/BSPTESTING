@@ -55,6 +55,12 @@ The assertion step is what makes this a lab rather than a demo: the checks live 
 on push, on a schedule (Mondays, so a kernel/toolchain regression shows up without you
 prodding it), or manually with an optional pinned kernel version.
 
+**GitHub Codespaces (no local disk needed).** On the repo page: Code -> Codespaces ->
+Create codespace on main. `.devcontainer/` installs the toolchain, then run
+`make all && make boot && make check` in the terminal. First build ~20-30 min, after that
+the driver edit loop is about a minute. Stop the codespace when done (free quota is
+counted in core-hours).
+
 **Your machine, later.** Needs ~12 GB free and Ubuntu/Debian:
 
 ```sh
